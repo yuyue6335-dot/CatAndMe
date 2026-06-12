@@ -1,0 +1,15 @@
+"use client";
+
+import { useEffect } from "react";
+
+export function PWARegister() {
+  useEffect(() => {
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        // The app remains usable if registration fails in older browsers.
+      });
+    }
+  }, []);
+
+  return null;
+}
