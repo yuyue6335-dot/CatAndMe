@@ -29,7 +29,7 @@ const config: Config = {
         }
       },
       boxShadow: {
-        soft: "0 12px 40px rgba(42, 88, 55, 0.14)"
+        soft: "0 18px 48px rgba(42, 88, 55, 0.10)"
       },
       borderRadius: {
         xl: "1rem",
