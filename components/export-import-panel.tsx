@@ -65,14 +65,14 @@ export function ExportImportPanel({
   };
 
   return (
-    <Card className="p-4">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e4f4e6] text-[#3e7d50]">
+    <Card className="p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e4f4e6] text-[#3e7d50]">
           <ShieldCheck className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-base font-semibold">加密备份</h2>
-          <p className="text-xs text-muted">导出成一个文件，发给另一台设备也能恢复</p>
+          <h2 className="text-base font-semibold text-text">加密备份</h2>
+          <p className="mt-1 text-xs leading-5 text-muted">导出成一个文件，发给另一台设备也能恢复。</p>
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export function ExportImportPanel({
             导出备份
           </Button>
           <label className="inline-flex cursor-pointer">
-            <span className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white/70 px-4 text-sm font-medium transition hover:bg-white">
+            <span className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white/80 px-4 text-sm font-medium text-text transition duration-200 hover:border-primary/35 hover:bg-white active:translate-y-px">
               <ArchiveRestore className="h-4 w-4" />
               导入备份
             </span>
@@ -100,7 +100,7 @@ export function ExportImportPanel({
             />
           </label>
         </div>
-        <p className="text-xs text-muted">{status}</p>
+        <p className="text-xs leading-5 text-muted">{status}</p>
       </div>
     </Card>
   );

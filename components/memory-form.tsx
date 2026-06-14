@@ -20,6 +20,8 @@ type Draft = {
   comment: string;
 };
 
+const defaultGeoHint = "支持从照片读取 GPS，也可以在右侧地图选点自动记录位置。";
+
 const createEmptyDraft = (): Draft => ({
   title: "",
   note: "",
@@ -48,7 +50,7 @@ export function MemoryForm({
   const [draft, setDraft] = useState<Draft>(() => createEmptyDraft());
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
-  const [geoHint, setGeoHint] = useState("支持从照片读取 GPS，也可以手动输入地点坐标。");
+  const [geoHint, setGeoHint] = useState(defaultGeoHint);
 
   const hasLocation = useMemo(() => Boolean(draft.lat && draft.lng), [draft.lat, draft.lng]);
 
@@ -67,7 +69,7 @@ export function MemoryForm({
     setFiles(nextFiles);
     const first = nextFiles[0];
     if (!first) {
-      setGeoHint("支持从照片读取 GPS，也可以手动输入地点坐标。");
+      setGeoHint(defaultGeoHint);
       return;
     }
 
@@ -81,10 +83,10 @@ export function MemoryForm({
         }));
         setGeoHint("已从第一张照片读取到位置信息。");
       } else {
-        setGeoHint("这张照片没有 GPS 信息，可手动输入坐标。");
+        setGeoHint("这张照片没有 GPS 信息，可以在右侧地图选点补充位置。");
       }
     } catch {
-      setGeoHint("未读取到照片位置，可手动输入坐标。");
+      setGeoHint("未读取到照片位置，可以在右侧地图选点补充位置。");
     }
   };
 
@@ -154,25 +156,25 @@ export function MemoryForm({
       });
       setDraft(createEmptyDraft());
       setFiles([]);
-      setGeoHint("支持从照片读取 GPS，也可以手动输入地点坐标。");
+      setGeoHint(defaultGeoHint);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="p-4">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e4f4e6] text-[#3e7d50]">
+    <Card className="p-5 md:p-6">
+      <div className="mb-5 flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e4f4e6] text-[#3e7d50]">
           <Sparkles className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-base font-semibold">新增一段回忆</h2>
-          <p className="text-xs text-muted">照片、评论、地点和标签都可以一次记下</p>
+          <h2 className="text-lg font-semibold text-text">新增一段回忆</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">照片、评论、地点和标签都可以一次记下。</p>
         </div>
       </div>
 
-      <form className="grid gap-3" onSubmit={handleSubmit}>
+      <form className="grid gap-3.5" onSubmit={handleSubmit}>
         <Input
           placeholder="回忆标题，比如：春天的公园散步"
           value={draft.title}
@@ -183,13 +185,14 @@ export function MemoryForm({
           value={draft.note}
           onChange={(e) => setDraft((prev) => ({ ...prev, note: e.target.value }))}
         />
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
           <Input
             type="date"
             value={draft.visitDate}
             onChange={(e) => setDraft((prev) => ({ ...prev, visitDate: e.target.value }))}
           />
           <Input
+            className="md:col-span-2"
             placeholder="标签，比如：旅行 / 周末 / 纪念日"
             value={draft.tag}
             onChange={(e) => setDraft((prev) => ({ ...prev, tag: e.target.value }))}
@@ -207,29 +210,21 @@ export function MemoryForm({
             onChange={(e) => setDraft((prev) => ({ ...prev, placeAddress: e.target.value }))}
           />
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input
-            placeholder="纬度"
-            inputMode="decimal"
-            value={draft.lat}
-            onChange={(e) => setDraft((prev) => ({ ...prev, lat: e.target.value }))}
-          />
-          <Input
-            placeholder="经度"
-            inputMode="decimal"
-            value={draft.lng}
-            onChange={(e) => setDraft((prev) => ({ ...prev, lng: e.target.value }))}
-          />
-        </div>
         <Textarea
+          className="min-h-24"
           placeholder="评论，比如：这一天的天空也很好看"
           value={draft.comment}
           onChange={(e) => setDraft((prev) => ({ ...prev, comment: e.target.value }))}
         />
 
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line bg-white/60 px-4 py-3 text-sm">
-          <ImagePlus className="h-4 w-4 text-[#47895c]" />
-          <span className="flex-1">添加照片</span>
+        <label className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-primary/25 bg-[#f7faf8] px-4 py-4 text-sm transition hover:border-primary/45 hover:bg-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#47895c] shadow-sm transition group-hover:scale-105">
+            <ImagePlus className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium text-text">添加照片</span>
+            <span className="mt-0.5 block truncate text-xs text-muted">{geoHint}</span>
+          </span>
           <input
             className="hidden"
             type="file"
@@ -237,11 +232,10 @@ export function MemoryForm({
             multiple
             onChange={(e) => void handleFiles(Array.from(e.target.files || []))}
           />
-          <span className="text-xs text-muted">{files.length} 张</span>
+          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-muted shadow-sm">{files.length} 张</span>
         </label>
-        <p className="text-xs text-muted">{geoHint}</p>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pt-1">
           <Button type="submit" disabled={loading}>
             <MessageSquarePlus className="h-4 w-4" />
             {loading ? "保存中" : "保存回忆"}

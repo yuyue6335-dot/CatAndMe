@@ -6,17 +6,12 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: "sm" | "md";
 };
 
-export function Button({
-  className,
-  variant = "default",
-  size = "md",
-  ...props
-}: ButtonProps) {
+export function Button({ className, variant = "default", size = "md", ...props }: ButtonProps) {
   const variants = {
-    default: "bg-primary text-primary-foreground hover:opacity-95",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-[#d9eadb]",
-    ghost: "hover:bg-black/5",
-    outline: "border border-line bg-white/70 hover:bg-white"
+    default: "bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(54,122,83,0.22)] hover:bg-[#2f764a]",
+    secondary: "bg-secondary text-secondary-foreground hover:bg-[#dcefe2]",
+    ghost: "text-text hover:bg-black/5",
+    outline: "border border-line bg-white/80 text-text hover:border-primary/35 hover:bg-white"
   };
 
   const sizes = {
@@ -27,8 +22,9 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition",
-        "disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition duration-200",
+        "active:translate-y-px disabled:pointer-events-none disabled:opacity-50",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         variants[variant],
         sizes[size],
         className
@@ -38,50 +34,46 @@ export function Button({
   );
 }
 
-export function Card({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-2xl border border-line bg-white/80 shadow-soft", className)}
+      className={cn("rounded-2xl border border-white/70 bg-white/90 shadow-soft ring-1 ring-black/[0.02]", className)}
       {...props}
     />
   );
 }
 
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={cn(
-        "h-11 w-full rounded-xl border border-line bg-white px-3 text-sm outline-none",
-        "placeholder:text-muted focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
+        "h-11 w-full rounded-xl border border-transparent bg-[#f4f7f6] px-3.5 text-sm text-text outline-none transition duration-200",
+        "placeholder:text-muted/70 hover:bg-white focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10",
+        className
       )}
       {...props}
     />
   );
 }
 
-export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       className={cn(
-        "min-h-28 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm outline-none",
-        "placeholder:text-muted focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
+        "min-h-28 w-full resize-y rounded-xl border border-transparent bg-[#f4f7f6] px-3.5 py-3 text-sm leading-6 text-text outline-none transition duration-200",
+        "placeholder:text-muted/70 hover:bg-white focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10",
+        className
       )}
       {...props}
     />
   );
 }
 
-export function Badge({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) {
+export function Badge({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border border-line bg-[#f5fbf6] px-2.5 py-1 text-xs text-[#356844]",
+        "inline-flex items-center rounded-full border border-primary/10 bg-[#edf8ef] px-2.5 py-1 text-xs font-medium text-[#356844]",
         className
       )}
       {...props}
