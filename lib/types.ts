@@ -23,7 +23,7 @@ export type Place = {
 export type Comment = {
   id: string;
   memoryId: string;
-  author: "我" | "你";
+  author: string;
   body: string;
   createdAt: number;
   updatedAt: number;
@@ -48,13 +48,18 @@ export type Photo = {
   memoryId: string;
   name: string;
   mimeType: string;
-  file: Blob;
+  storagePath: string;
+  url: string;
   width: number | null;
   height: number | null;
   lat: number | null;
   lng: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type PhotoDraft = Omit<Photo, "storagePath" | "url"> & {
+  file: File | Blob;
 };
 
 export type ExportBundle = {
@@ -64,6 +69,8 @@ export type ExportBundle = {
   size: number;
 };
 
+export type DBSnapshotPhoto = Omit<Photo, "url"> & { fileBase64: string };
+
 export type DBSnapshot = {
   version: 1;
   exportedAt: string;
@@ -72,5 +79,14 @@ export type DBSnapshot = {
   comments: Comment[];
   tags: Tag[];
   memoryTags: MemoryTag[];
-  photos: Array<Omit<Photo, "file"> & { fileBase64: string }>;
+  photos: DBSnapshotPhoto[];
+};
+
+export type MemoryView = {
+  memories: Memory[];
+  places: Place[];
+  comments: Comment[];
+  tags: Tag[];
+  memoryTags: MemoryTag[];
+  photos: Photo[];
 };

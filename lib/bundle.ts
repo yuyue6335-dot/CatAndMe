@@ -1,4 +1,4 @@
-import type { Comment, DBSnapshot, Memory, MemoryTag, Photo, Place, Tag } from "./types";
+import type { Comment, DBSnapshot, Memory, MemoryTag, Photo, PhotoDraft, Place, Tag } from "./types";
 import { bytesToBase64, base64ToBytes } from "./utils";
 
 export async function snapshotToJSON(snapshot: {
@@ -7,12 +7,13 @@ export async function snapshotToJSON(snapshot: {
   comments: Comment[];
   tags: Tag[];
   memoryTags: MemoryTag[];
-  photos: Photo[];
+  photos: Array<Photo | PhotoDraft>;
 }) {
   const photos = await Promise.all(
     snapshot.photos.map(async (photo) => ({
       ...photo,
-      fileBase64: bytesToBase64(new Uint8Array(await photo.file.arrayBuffer()))
+      storagePath: "storagePath" in photo ? photo.storagePath : "",
+      fileBase64: "file" in photo ? bytesToBase64(new Uint8Array(await photo.file.arrayBuffer())) : ""
     }))
   );
 
@@ -35,7 +36,7 @@ export function jsonToSnapshot(json: string): DBSnapshot {
 }
 
 export function hydratePhotos(photos: DBSnapshot["photos"]) {
-  return photos.map(({ fileBase64, ...photo }) => ({
+  return photos.map(({ fileBase64, storagePath: _storagePath, ...photo }) => ({
     ...photo,
     file: new Blob([base64ToBytes(fileBase64)], { type: photo.mimeType })
   }));

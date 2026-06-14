@@ -6,7 +6,7 @@ import * as exifr from "exifr";
 import { ImagePlus, MapPinned, MessageSquarePlus, Sparkles } from "lucide-react";
 import { Button, Card, Input, Textarea } from "./ui";
 import { makeId } from "@/lib/utils";
-import type { Memory, Place, Photo, Tag } from "@/lib/types";
+import type { Memory, PhotoDraft, Place, Tag } from "@/lib/types";
 
 type Draft = {
   title: string;
@@ -43,7 +43,7 @@ export function MemoryForm({
     place: Place | null;
     tags: Tag[];
     comments: string[];
-    photos: Photo[];
+    photos: PhotoDraft[];
   }) => Promise<void> | void;
   pickedLocation: { lat: number; lng: number } | null;
 }) {
@@ -133,7 +133,7 @@ export function MemoryForm({
           ]
         : [];
 
-      const photos: Photo[] = files.map((file) => ({
+      const photos: PhotoDraft[] = files.map((file) => ({
         id: makeId("photo"),
         memoryId: memory.id,
         name: file.name,

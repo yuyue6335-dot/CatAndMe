@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Heart, ImageIcon, MapPin, MessageCircle, Star, Trash2 } from "lucide-react";
 import { CatIllustration } from "./cat-illustration";
 import { Badge, Button, Card } from "./ui";
@@ -19,15 +19,7 @@ type Props = {
 };
 
 function PhotoStrip({ photos }: { photos: Photo[] }) {
-  const [urls, setUrls] = useState<string[]>([]);
-
-  useEffect(() => {
-    const nextUrls = photos.slice(0, 3).map((photo) => URL.createObjectURL(photo.file));
-    setUrls(nextUrls);
-    return () => {
-      nextUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [photos]);
+  const urls = useMemo(() => photos.slice(0, 3).map((photo) => photo.url).filter(Boolean), [photos]);
 
   if (!photos.length) {
     return (

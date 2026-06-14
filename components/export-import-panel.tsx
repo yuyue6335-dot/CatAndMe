@@ -4,24 +4,15 @@ import { useState } from "react";
 import { ArchiveRestore, Lock, ShieldCheck } from "lucide-react";
 import { Button, Card, Input } from "./ui";
 import { decryptJSON, encryptJSON } from "@/lib/crypto";
-import { hydratePhotos, jsonToSnapshot, snapshotToJSON } from "@/lib/bundle";
-import type { Comment, Memory, MemoryTag, Photo, Place, Tag } from "@/lib/types";
-
-type Snapshot = {
-  memories: Memory[];
-  places: Place[];
-  comments: Comment[];
-  tags: Tag[];
-  memoryTags: MemoryTag[];
-  photos: Photo[];
-};
+import { jsonToSnapshot, snapshotToJSON } from "@/lib/bundle";
+import type { DBSnapshot, MemoryView } from "@/lib/types";
 
 export function ExportImportPanel({
   snapshot,
   onImport
 }: {
-  snapshot: Snapshot;
-  onImport: (snapshot: Snapshot) => Promise<void> | void;
+  snapshot: MemoryView;
+  onImport: (snapshot: DBSnapshot) => Promise<void> | void;
 }) {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("支持加密导出和恢复导入。");
@@ -52,15 +43,7 @@ export function ExportImportPanel({
     }
 
     const json = raw.encrypted ? await decryptJSON(raw.payload, password, raw.salt, raw.iv) : raw.payload;
-    const parsed = jsonToSnapshot(json);
-    await onImport({
-      memories: parsed.memories,
-      places: parsed.places,
-      comments: parsed.comments,
-      tags: parsed.tags,
-      memoryTags: parsed.memoryTags,
-      photos: hydratePhotos(parsed.photos) as Photo[]
-    });
+    await onImport(jsonToSnapshot(json));
     setStatus("已导入备份。");
   };
 
@@ -72,7 +55,7 @@ export function ExportImportPanel({
         </div>
         <div>
           <h2 className="text-base font-semibold text-text">加密备份</h2>
-          <p className="mt-1 text-xs leading-5 text-muted">导出成一个文件，发给另一台设备也能恢复。</p>
+          <p className="mt-1 text-xs leading-5 text-muted">导出成一个文件，也可以把旧 IndexedDB 备份导入云端。</p>
         </div>
       </div>
 

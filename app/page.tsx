@@ -1,29 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { CalendarHeart, Home, Leaf, MapPinned, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CalendarHeart, Home, Leaf, LogIn, LogOut, MapPinned, Search } from "lucide-react";
 import { CatIllustration } from "@/components/cat-illustration";
 import { ExportImportPanel } from "@/components/export-import-panel";
 import { MapView } from "@/components/map-view";
 import { MemoryForm } from "@/components/memory-form";
 import { MemoryList } from "@/components/memory-list";
 import { Badge, Button, Card } from "@/components/ui";
-import { db } from "@/lib/db";
-import { loadMemoryView } from "@/lib/queries";
-import type { Comment, Memory, MemoryTag, Photo, Place, Tag } from "@/lib/types";
-import { makeId } from "@/lib/utils";
+import { AuthenticationRequiredError, loadMemoryView, requestMemoryView } from "@/lib/queries";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import type { DBSnapshot, Memory, MemoryView, PhotoDraft, Place, Tag } from "@/lib/types";
 
-type Snapshot = {
-  memories: Memory[];
-  places: Place[];
-  comments: Comment[];
-  tags: Tag[];
-  memoryTags: MemoryTag[];
-  photos: Photo[];
-};
-
-const emptySnapshot: Snapshot = {
+const emptySnapshot: MemoryView = {
   memories: [],
   places: [],
   comments: [],
@@ -33,11 +24,42 @@ const emptySnapshot: Snapshot = {
 };
 
 export default function HomePage() {
-  const data = useLiveQuery(loadMemoryView);
+  const router = useRouter();
+  const [snapshot, setSnapshot] = useState<MemoryView>(emptySnapshot);
+  const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [pickedLocation, setPickedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const snapshot = data ?? emptySnapshot;
+  const reload = async () => {
+    try {
+      setError("");
+      setSnapshot(await loadMemoryView());
+      setSignedIn(true);
+    } catch (loadError) {
+      if (loadError instanceof AuthenticationRequiredError) {
+        setSignedIn(false);
+        setSnapshot(emptySnapshot);
+        return;
+      }
+      setError(loadError instanceof Error ? loadError.message : "加载回忆失败。");
+    }
+  };
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      setSignedIn(Boolean(data.user));
+    })();
+    void reload().finally(() => setLoading(false));
+  }, []);
+
+  const redirectToLogin = () => {
+    router.push("/login?next=/");
+  };
+
   const placeMap = useMemo(() => new Map(snapshot.places.map((place) => [place.id, place])), [snapshot.places]);
 
   const visibleMemories = useMemo(() => {
@@ -56,66 +78,116 @@ export default function HomePage() {
     place: Place | null;
     tags: Tag[];
     comments: string[];
-    photos: Photo[];
+    photos: PhotoDraft[];
   }) => {
-    await db.transaction(
-      "rw",
-      [db.memories, db.places, db.tags, db.comments, db.memoryTags, db.photos],
-      async () => {
-        const memory = { ...input.memory, placeId: input.place?.id ?? null };
-        await db.memories.add(memory);
-        if (input.place) await db.places.add(input.place);
+    try {
+      const created = await requestMemoryView("/api/memories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          memory: input.memory,
+          place: input.place,
+          tags: input.tags,
+          comments: input.comments
+        })
+      });
 
-        for (const tag of input.tags) {
-          await db.tags.put(tag);
-          await db.memoryTags.put({ id: makeId("memoryTag"), memoryId: memory.id, tagId: tag.id });
-        }
+      setSnapshot(created);
+      setSignedIn(true);
 
-        for (const body of input.comments) {
-          await db.comments.add({
-            id: makeId("comment"),
-            memoryId: memory.id,
-            author: "我",
-            body,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          });
-        }
+      let nextSnapshot = created;
+      for (const photo of input.photos) {
+        const formData = new FormData();
+        formData.append("memoryId", input.memory.id);
+        formData.append("photoId", photo.id);
+        formData.append("file", photo.file, photo.name);
+        if (photo.lat !== null) formData.append("lat", String(photo.lat));
+        if (photo.lng !== null) formData.append("lng", String(photo.lng));
+        formData.append("createdAt", String(photo.createdAt));
+        formData.append("updatedAt", String(photo.updatedAt));
 
-        for (const photo of input.photos) {
-          await db.photos.add(photo);
-        }
+        nextSnapshot = await requestMemoryView("/api/photos/upload", {
+          method: "POST",
+          body: formData
+        });
       }
-    );
+
+      setSnapshot(nextSnapshot);
+    } catch (createError) {
+      if (createError instanceof AuthenticationRequiredError) {
+        redirectToLogin();
+        return;
+      }
+      setError(createError instanceof Error ? createError.message : "保存回忆失败。");
+    }
   };
 
-  const handleImport = async (input: Snapshot) => {
-    await db.transaction("rw", [db.memories, db.places, db.comments, db.tags, db.memoryTags, db.photos], async () => {
-      await Promise.all([
-        db.memories.bulkPut(input.memories),
-        db.places.bulkPut(input.places),
-        db.comments.bulkPut(input.comments),
-        db.tags.bulkPut(input.tags),
-        db.memoryTags.bulkPut(input.memoryTags),
-        db.photos.bulkPut(input.photos)
-      ]);
-    });
+  const handleImport = async (input: DBSnapshot) => {
+    try {
+      setSnapshot(
+        await requestMemoryView("/api/import", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(input)
+        })
+      );
+      setSignedIn(true);
+    } catch (importError) {
+      if (importError instanceof AuthenticationRequiredError) {
+        redirectToLogin();
+        return;
+      }
+      setError(importError instanceof Error ? importError.message : "导入回忆失败。");
+    }
   };
 
   const toggleFavorite = async (memory: Memory) => {
-    await db.memories.update(memory.id, { favorite: !memory.favorite, updatedAt: Date.now() });
+    try {
+      setSnapshot(
+        await requestMemoryView(`/api/memories/${memory.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ favorite: !memory.favorite })
+        })
+      );
+    } catch (favoriteError) {
+      if (favoriteError instanceof AuthenticationRequiredError) {
+        redirectToLogin();
+        return;
+      }
+      setError(favoriteError instanceof Error ? favoriteError.message : "更新回忆失败。");
+    }
   };
 
   const deleteMemory = async (memory: Memory) => {
-    if (!window.confirm(`删除《${memory.title}》吗？`)) return;
-    await db.transaction("rw", [db.memories, db.comments, db.memoryTags, db.photos], async () => {
-      await Promise.all([
-        db.memories.delete(memory.id),
-        db.comments.where("memoryId").equals(memory.id).delete(),
-        db.memoryTags.where("memoryId").equals(memory.id).delete(),
-        db.photos.where("memoryId").equals(memory.id).delete()
-      ]);
-    });
+    if (!window.confirm(`删除「${memory.title}」吗？`)) return;
+    try {
+      setSnapshot(
+        await requestMemoryView(`/api/memories/${memory.id}`, {
+          method: "DELETE"
+        })
+      );
+    } catch (deleteError) {
+      if (deleteError instanceof AuthenticationRequiredError) {
+        redirectToLogin();
+        return;
+      }
+      setError(deleteError instanceof Error ? deleteError.message : "删除回忆失败。");
+    }
+  };
+
+  const signOut = async () => {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    setSignedIn(false);
+    setSnapshot(emptySnapshot);
+    router.replace("/login?next=/");
   };
 
   return (
@@ -127,7 +199,7 @@ export default function HomePage() {
           <div className="relative max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-[#edf8ef] px-3 py-1 text-sm font-medium text-[#3f7d52]">
               <Leaf className="h-4 w-4" />
-              <span>离线优先 · 两个人的回忆地图</span>
+              <span>云端同步 · 两个人的回忆地图</span>
             </div>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight text-text md:text-5xl">猫与回忆</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted md:text-base">
@@ -140,7 +212,7 @@ export default function HomePage() {
               </Badge>
               <Badge>
                 <MapPinned className="mr-1 h-3.5 w-3.5" />
-                本地加密备份
+                云端备份
               </Badge>
             </div>
           </div>
@@ -150,7 +222,7 @@ export default function HomePage() {
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#e9f4ef] to-transparent" />
           <div className="relative">
             <p className="text-sm font-semibold text-text">今日记录</p>
-            <p className="mt-2 text-sm leading-6 text-muted">离线保存，本地备份，之后可以导出给另一台设备。</p>
+            <p className="mt-2 text-sm leading-6 text-muted">数据保存到 Supabase，照片存入 Storage，并保留加密导入导出。</p>
           </div>
           <CatIllustration className="relative mx-auto mt-4 h-40 w-full max-w-[240px]" />
         </Card>
@@ -171,16 +243,21 @@ export default function HomePage() {
           </Card>
 
           <MemoryForm onCreate={createFromForm} pickedLocation={pickedLocation} />
-          <MemoryList
-            memories={visibleMemories}
-            places={snapshot.places}
-            tags={snapshot.tags}
-            memoryTags={snapshot.memoryTags}
-            comments={snapshot.comments}
-            photos={snapshot.photos}
-            onDelete={deleteMemory}
-            onToggleFavorite={toggleFavorite}
-          />
+          {error ? <Card className="p-5 text-sm text-muted">{error}</Card> : null}
+          {loading ? (
+            <Card className="p-6 text-sm text-muted">正在加载回忆...</Card>
+          ) : (
+            <MemoryList
+              memories={visibleMemories}
+              places={snapshot.places}
+              tags={snapshot.tags}
+              memoryTags={snapshot.memoryTags}
+              comments={snapshot.comments}
+              photos={snapshot.photos}
+              onDelete={deleteMemory}
+              onToggleFavorite={toggleFavorite}
+            />
+          )}
         </div>
 
         <aside className="grid gap-5 lg:sticky lg:top-6">
@@ -192,13 +269,21 @@ export default function HomePage() {
               {snapshot.memories.length} 条回忆，{snapshot.places.length} 个地点，{snapshot.photos.length} 张照片。
             </p>
             <p className="mt-2">
-              {placeMap.size ? "地图已连接到本地点位数据。" : "还没有地点，先添加第一段回忆吧。"}
+              {placeMap.size ? "地图已连接到云端地点数据。" : "还没有地点，先添加第一段回忆吧。"}
             </p>
           </Card>
-          <Button className="justify-start" variant="secondary">
-            <Home className="h-4 w-4" />
-            <span>主页</span>
-          </Button>
+          <Link href={signedIn ? "/memories" : "/login?next=/memories"}>
+            <Button className="w-full justify-start" variant="secondary">
+              {signedIn ? <Home className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+              <span>{signedIn ? "我的回忆" : "登录查看回忆"}</span>
+            </Button>
+          </Link>
+          {signedIn ? (
+            <Button className="justify-start" type="button" variant="outline" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
+              <span>退出登录</span>
+            </Button>
+          ) : null}
         </aside>
       </section>
     </main>
